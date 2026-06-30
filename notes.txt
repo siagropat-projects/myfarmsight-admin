@@ -1,0 +1,3 @@
+Download Reports on Layout downloads general reports
+Farmers - Approve / Deny should be suspend or activate
+Reset Password - sets a default password 'password'
