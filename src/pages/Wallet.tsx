@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useWalletStore } from "../stores/wallet";
 import Button from "../components/ui/Button";
+import ConfirmationModal from "../components/ui/ConfirmationModal";
 
 export default function Wallet() {
   const { 
@@ -42,6 +43,7 @@ export default function Wallet() {
   } = useWalletStore();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPayoutConfirmOpen, setIsPayoutConfirmOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [withdrawData, setWithdrawData] = useState({
     bankCode: "",
@@ -86,9 +88,8 @@ export default function Wallet() {
   };
 
   const handleProcessPayouts = async () => {
-    if (window.confirm("Are you sure you want to process all pending vet payouts? This will move earnings to withdrawable balances and credit commissions to the admin wallet.")) {
-      await processPayouts();
-    }
+    await processPayouts();
+    setIsPayoutConfirmOpen(false);
   };
 
   const filteredTransactions = transactions.filter(tx => 
@@ -111,7 +112,7 @@ export default function Wallet() {
           <Button 
             variant="secondary" 
             className="flex items-center gap-2 border-brand text-brand hover:bg-brand/5"
-            onClick={handleProcessPayouts}
+            onClick={() => setIsPayoutConfirmOpen(true)}
             disabled={isLoading}
           >
             <RefreshCcw size={18} className={isLoading ? "animate-spin" : ""} />
@@ -323,6 +324,17 @@ export default function Wallet() {
           </div>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={isPayoutConfirmOpen}
+        onClose={() => !isLoading && setIsPayoutConfirmOpen(false)}
+        onConfirm={handleProcessPayouts}
+        isLoading={isLoading}
+        variant="proceed"
+        title="Process Vet Payouts?"
+        description="This will move all pending vet earnings to withdrawable balances and credit commissions to the admin wallet."
+        confirmText="Process Payouts"
+      />
 
       {/* Withdrawal Modal */}
       {isModalOpen && (

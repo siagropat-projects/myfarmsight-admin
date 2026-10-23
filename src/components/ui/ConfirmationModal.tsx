@@ -36,7 +36,7 @@ export default function ConfirmationModal({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div ref={modalRef} className="bg-white rounded-2xl p-6 w-full max-w-[400px] shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <div ref={modalRef} className="bg-white rounded-2xl p-6 w-full max-w-[440px] shadow-2xl relative animate-in fade-in zoom-in duration-200">
                 <button onClick={onClose} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600" disabled={isLoading}><X size={20} /></button>
                 <div className="flex flex-col items-center text-center">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 border ${getIconColor()}`}>
@@ -45,8 +45,8 @@ export default function ConfirmationModal({
                     <h3 className="text-lg font-bold text-[#101828] mb-2">{title}</h3>
                     <p className="text-[#667085] text-sm leading-relaxed mb-8">{description}</p>
                     <div className="flex gap-3 w-full">
-                        <Button variant="secondary" onClick={onClose} className="flex-1" disabled={isLoading}>Cancel</Button>
-                        <Button variant={getButtonVariant()} onClick={onConfirm} isLoading={isLoading} className="flex-1">
+                        <Button variant="secondary" onClick={onClose} className="flex-1 whitespace-nowrap" disabled={isLoading}>Cancel</Button>
+                        <Button variant={getButtonVariant()} onClick={onConfirm} isLoading={isLoading} className="flex-1 whitespace-nowrap">
                             {confirmText}
                         </Button>
                     </div>
