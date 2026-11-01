@@ -41,18 +41,18 @@ export default function Sidebar() {
     return (
         <div className="flex flex-col h-screen w-64 border-r border-gray-200 bg-white p-4">
             {/* Logo Area */}
-            <div className="mb-10 px-2">
+            <div className="mb-10 px-2 shrink-0 [@media(max-height:800px)]:mb-6">
                 <img src={Images.logo} alt="My Farm Sight" className="w-32" />
             </div>
 
-            {/* Main Navigation */}
-            <nav className="flex-1 flex flex-col gap-2">
+            {/* Main Navigation (scrolls on short screens so every link stays reachable) */}
+            <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 [@media(max-height:800px)]:gap-1">
                 {menu.map((item) => (
                     <NavLink
                         key={item.name}
                         to={item.path}
                         className={({ isActive }) =>
-                            `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                            `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors shrink-0 [@media(max-height:800px)]:py-2.5 ${isActive
                                 ? "bg-[#29A329] text-white" // Using the green from your screenshot
                                 : "text-gray-500 hover:bg-gray-100"
                             }`
@@ -67,7 +67,7 @@ export default function Sidebar() {
             {/* Sign Out Button (Anchored Bottom) */}
             <button
                 onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 transition-colors mt-auto cursor-pointer"
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 transition-colors mt-2 shrink-0 cursor-pointer [@media(max-height:800px)]:py-2.5"
             >
                 <LogOut size={20} />
                 <span className="font-medium">Sign Out</span>
