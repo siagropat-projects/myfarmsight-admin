@@ -14,12 +14,24 @@ import {
   AlertCircle,
   Info,
   RefreshCcw,
+  SearchCheck,
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import { useWalletStore } from "../stores/wallet";
+import {
+  useWalletStore,
+  TRANSACTION_STATUSES,
+  TRANSACTION_TYPES,
+  TRANSACTIONS_PER_PAGE,
+  type ReconcileResult
+} from "../stores/wallet";
 import Button from "../components/ui/Button";
 import ConfirmationModal from "../components/ui/ConfirmationModal";
+import PendingWithdrawals from "../components/modules/wallet/PendingWithdrawals";
+import WalletStatusBadge from "../components/modules/wallet/WalletStatusBadge";
+import ReconcileResultModal from "../components/modules/wallet/ReconcileResultModal";
+
+const formatLabel = (value: string) => value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, " ");
 
 export default function Wallet() {
   const { 
@@ -39,11 +51,19 @@ export default function Wallet() {
     isLoading,
     withdraw,
     processPayouts,
-    resetVerification
+    resetVerification,
+    fetchPendingWithdrawals,
+    pendingWithdrawals,
+    transactionFilters,
+    setTransactionFilters,
+    reconcileWithdrawals
   } = useWalletStore();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPayoutConfirmOpen, setIsPayoutConfirmOpen] = useState(false);
+  const [isReconcileConfirmOpen, setIsReconcileConfirmOpen] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(null);
+  const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [step, setStep] = useState(1);
   const [withdrawData, setWithdrawData] = useState({
     bankCode: "",
@@ -56,7 +76,8 @@ export default function Wallet() {
     fetchBanks();
     fetchOverview();
     fetchTransactions(1);
-  }, [fetchBanks, fetchOverview, fetchTransactions]);
+    fetchPendingWithdrawals();
+  }, [fetchBanks, fetchOverview, fetchTransactions, fetchPendingWithdrawals]);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -92,6 +113,17 @@ export default function Wallet() {
     setIsPayoutConfirmOpen(false);
   };
 
+  const handleReconcile = async () => {
+    try {
+      const result = await reconcileWithdrawals();
+      setReconcileResult(result);
+    } catch {
+      // Error handled by store
+    } finally {
+      setIsReconcileConfirmOpen(false);
+    }
+  };
+
   const filteredTransactions = transactions.filter(tx => 
     tx.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     tx.reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -102,13 +134,22 @@ export default function Wallet() {
   const withdrawableBalance = Number(overview?.wallet?.withdrawable_balance || 0);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Wallet Management</h1>
           <p className="text-sm text-gray-500">Monitor your earnings and process withdrawals.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
+          <Button 
+            variant="secondary" 
+            className="flex items-center gap-2"
+            onClick={() => setIsReconcileConfirmOpen(true)}
+            disabled={isLoading}
+          >
+            <SearchCheck size={18} />
+            Reconcile Withdrawals
+          </Button>
           <Button 
             variant="secondary" 
             className="flex items-center gap-2 border-brand text-brand hover:bg-brand/5"
@@ -132,12 +173,12 @@ export default function Wallet() {
 
       {/* Balance Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="col-span-1 md:col-span-2 bg-brand rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-brand/20">
+        <div className="col-span-1 md:col-span-2 bg-brand rounded-3xl p-6 text-white relative overflow-hidden shadow-xl shadow-brand/20">
           <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
             <WalletIcon size={180} />
           </div>
           
-          <div className="relative z-10 space-y-6">
+          <div className="relative z-10 space-y-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
                 <WalletIcon size={16} />
@@ -152,20 +193,20 @@ export default function Wallet() {
             </div>
 
             <div>
-              <h2 className="text-5xl font-black tracking-tighter">
+              <h2 className="text-4xl font-black tracking-tighter">
                 {showBalance ? `₦${withdrawableBalance.toLocaleString()}` : "*******"}
               </h2>
-              <p className="text-white/60 text-xs mt-2 font-medium">Last updated: {overview?.wallet ? new Date(overview.wallet.updated_at).toLocaleString() : "N/A"}</p>
+              <p className="text-white/60 text-xs mt-1 font-medium">Last updated: {overview?.wallet ? new Date(overview.wallet.updated_at).toLocaleString() : "N/A"}</p>
             </div>
 
-            <div className="flex gap-4 pt-4">
-              <div className="bg-white/10 p-4 rounded-2xl border border-white/5 flex-1 backdrop-blur-sm">
+            <div className="flex gap-4">
+              <div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/5 flex-1 backdrop-blur-sm">
                 <p className="text-[10px] uppercase font-bold text-white/50 tracking-widest mb-1">Subscriptions</p>
                 <p className="text-lg font-bold">
                   {showBalance ? `₦${Number(overview?.wallet?.subscription_earned || 0).toLocaleString()}` : "****"}
                 </p>
               </div>
-              <div className="bg-white/10 p-4 rounded-2xl border border-white/5 flex-1 backdrop-blur-sm">
+              <div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/5 flex-1 backdrop-blur-sm">
                 <p className="text-[10px] uppercase font-bold text-white/50 tracking-widest mb-1">Vet Commissions</p>
                 <p className="text-lg font-bold">
                   {showBalance ? `₦${Number(overview?.wallet?.commission_earned || 0).toLocaleString()}` : "****"}
@@ -175,33 +216,33 @@ export default function Wallet() {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm space-y-6">
+        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-3">
           <h3 className="text-lg font-bold text-gray-900">Wallet Summary</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-3 border-b border-gray-50">
+          <div>
+            <div className="flex justify-between items-center py-2.5 border-b border-gray-50">
               <span className="text-sm text-gray-500 font-medium">Global Commissions</span>
               <span className={`text-sm font-bold ${showBalance ? "text-brand" : "text-gray-300"}`}>
                 {showBalance ? `₦${Number(overview?.stats.total_commissions || 0).toLocaleString()}` : "****"}
               </span>
             </div>
-            <div className="flex justify-between items-center py-3 border-b border-gray-50">
+            <div className="flex justify-between items-center py-2.5 border-b border-gray-50">
               <span className="text-sm text-gray-500 font-medium">Global Subscriptions</span>
               <span className={`text-sm font-bold ${showBalance ? "text-brand" : "text-gray-300"}`}>
                 {showBalance ? `₦${Number(overview?.stats.total_subscriptions || 0).toLocaleString()}` : "****"}
               </span>
             </div>
-            <div className="flex justify-between items-center py-3 border-b border-gray-50">
+            <div className="flex justify-between items-center py-2.5 border-b border-gray-50">
               <span className="text-sm text-gray-500 font-medium">Total Admin Balance</span>
               <span className={`text-sm font-bold ${showBalance ? "text-gray-900" : "text-gray-300"}`}>
                 {showBalance ? `₦${Number(overview?.stats?.total_admin_withdrawable_balance || 0).toLocaleString()}` : "****"}
               </span>
             </div>
-            <div className="flex justify-between items-center py-3">
+            <div className="flex justify-between items-center py-2.5">
               <span className="text-sm text-gray-500 font-medium">Service Fee</span>
               <span className="text-sm font-bold text-gray-900">1.5%</span>
             </div>
           </div>
-          <div className="bg-gray-50 rounded-2xl p-4 flex items-start gap-3">
+          <div className="bg-gray-50 rounded-2xl p-3 flex items-start gap-3">
             <Info size={18} className="text-brand shrink-0 mt-0.5" />
             <p className="text-[11px] text-gray-500 leading-relaxed">
               Withdrawals are processed via Paystack and usually arrive in your bank account within 24 hours.
@@ -210,119 +251,175 @@ export default function Wallet() {
         </div>
       </div>
 
-      {/* Transaction History */}
+      <ConfirmationModal
+        isOpen={isReconcileConfirmOpen}
+        onClose={() => !isLoading && setIsReconcileConfirmOpen(false)}
+        onConfirm={handleReconcile}
+        isLoading={isLoading}
+        variant="proceed"
+        title="Reconcile Withdrawals?"
+        description="This checks stuck withdrawals with the bank. Completed ones are marked successful and failed ones are refunded."
+        confirmText="Reconcile"
+      />
+
+      {reconcileResult && (
+        <ReconcileResultModal result={reconcileResult} onClose={() => setReconcileResult(null)} />
+      )}
+
+      {/* Pending Withdrawals / Transaction History */}
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">Transaction History</h3>
-            <p className="text-xs text-gray-400 mt-1">All incoming wallet credits and commissions.</p>
-          </div>
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Search transactions..." 
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-brand outline-none transition-all"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-500 border-b border-gray-100 font-bold uppercase tracking-wider text-[10px]">
-              <tr>
-                <th className="px-6 py-4">Transaction Type</th>
-                <th className="px-6 py-4">User/Entity</th>
-                <th className="px-6 py-4">Amount</th>
-                <th className="px-6 py-4">Date & Time</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filteredTransactions.map((tx) => (
-                <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${tx.type.includes("subscription") ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}`}>
-                        {tx.type.includes("withdrawal") ? <ArrowRight size={16} className="text-red-500" /> : <Plus size={16} />}
-                      </div>
-                      <span className="font-bold text-gray-900 capitalize">{tx.type.replace(/_/g, " ")}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-gray-900">{tx.user_name || "System"}</span>
-                      <span className="text-[10px] text-gray-400">{tx.user_role || "N/A"}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`font-bold ${tx.type.includes("withdrawal") ? "text-red-500" : "text-brand"}`}>
-                      {tx.type.includes("withdrawal") ? "-" : "+"}₦{tx.amount.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{new Date(tx.created_at).toLocaleDateString()}</span>
-                      <span className="text-[10px] uppercase font-bold tracking-widest opacity-60">
-                        {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full w-fit border ${
-                      tx.status === "successful" ? "bg-green-50 text-green-600 border-green-100" : 
-                      tx.status === "pending" ? "bg-orange-50 text-orange-600 border-orange-100" : 
-                      "bg-red-50 text-red-600 border-red-100"
-                    }`}>
-                      {tx.status === "successful" ? <CheckCircle2 size={12} /> : 
-                       tx.status === "pending" ? <Loader2 size={12} className="animate-spin" /> : 
-                       <AlertCircle size={12} />}
-                      {tx.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
-                      <MoreVertical size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filteredTransactions.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    No transactions found.
-                  </td>
-                </tr>
+        <div className="px-6 pt-5 border-b border-gray-100 flex gap-6">
+          {([
+            { id: "pending", label: "Pending Withdrawals", count: pendingWithdrawals.length },
+            { id: "history", label: "Transaction History", count: 0 },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`pb-4 px-1 font-bold text-sm transition-all whitespace-nowrap relative flex items-center gap-2 ${
+                activeTab === tab.id ? "text-brand" : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className="bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {tab.count}
+                </span>
               )}
-            </tbody>
-          </table>
+              {activeTab === tab.id && (
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-full" />
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* Pagination */}
-        <div className="p-6 border-t border-gray-50 flex items-center justify-between">
-          <p className="text-xs text-gray-500">
-            Showing <span className="font-bold text-gray-900">{filteredTransactions.length}</span> of <span className="font-bold text-gray-900">{totalTransactions}</span> transactions
-          </p>
-          <div className="flex gap-2">
-            <button 
-              className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              onClick={() => fetchTransactions(currentPage - 1)}
-              disabled={currentPage === 1 || isLoading}
+        {activeTab === "pending" ? (
+          <PendingWithdrawals />
+        ) : (
+          <>
+          <div className="p-6 border-b border-gray-50 flex justify-between items-center gap-4">
+            <p className="text-xs text-gray-400">All wallet credits, withdrawals and commissions.</p>
+            <div className="flex flex-wrap justify-end gap-3">
+            <select
+              className="bg-gray-50 border border-gray-200 rounded-xl py-2 px-3 text-sm focus:ring-1 focus:ring-brand outline-none"
+              value={transactionFilters.type ?? ""}
+              onChange={(e) => setTransactionFilters({ ...transactionFilters, type: e.target.value || undefined })}
             >
-              <ChevronLeft size={18} className="text-gray-600" />
-            </button>
-            <button 
-              className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              onClick={() => fetchTransactions(currentPage + 1)}
-              disabled={currentPage * 20 >= totalTransactions || isLoading}
+              <option value="">All types</option>
+              {TRANSACTION_TYPES.map((type) => (
+                <option key={type} value={type}>{formatLabel(type)}</option>
+              ))}
+            </select>
+            <select
+              className="bg-gray-50 border border-gray-200 rounded-xl py-2 px-3 text-sm focus:ring-1 focus:ring-brand outline-none"
+              value={transactionFilters.status ?? ""}
+              onChange={(e) => setTransactionFilters({ ...transactionFilters, status: e.target.value || undefined })}
             >
-              <ChevronRight size={18} className="text-gray-600" />
-            </button>
+              <option value="">All statuses</option>
+              {TRANSACTION_STATUSES.map((status) => (
+                <option key={status} value={status}>{formatLabel(status)}</option>
+              ))}
+            </select>
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <input 
+                type="text" 
+                placeholder="Search this page..." 
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-brand outline-none transition-all"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            </div>
           </div>
-        </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-50 text-gray-500 border-b border-gray-100 font-bold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="px-6 py-4">Transaction Type</th>
+                  <th className="px-6 py-4">User/Entity</th>
+                  <th className="px-6 py-4">Amount</th>
+                  <th className="px-6 py-4">Date & Time</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredTransactions.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${tx.type.includes("subscription") ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}`}>
+                          {tx.type.includes("withdrawal") ? <ArrowRight size={16} className="text-red-500" /> : <Plus size={16} />}
+                        </div>
+                        <span className="font-bold text-gray-900 capitalize">{tx.type.replace(/_/g, " ")}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-gray-900">{tx.user_name || "System"}</span>
+                        <span className="text-[10px] text-gray-400">{tx.user_role || "N/A"}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`font-bold ${tx.type.includes("withdrawal") ? "text-red-500" : "text-brand"}`}>
+                        {tx.type.includes("withdrawal") ? "-" : "+"}₦{tx.amount.toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{new Date(tx.created_at).toLocaleDateString()}</span>
+                        <span className="text-[10px] uppercase font-bold tracking-widest opacity-60">
+                          {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <WalletStatusBadge status={tx.status} type={tx.type} />
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
+                        <MoreVertical size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filteredTransactions.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                      No transactions found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="p-6 border-t border-gray-50 flex items-center justify-between">
+            <p className="text-xs text-gray-500">
+              Showing <span className="font-bold text-gray-900">{filteredTransactions.length}</span> of <span className="font-bold text-gray-900">{totalTransactions}</span> transactions
+            </p>
+            <div className="flex gap-2">
+              <button 
+                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                onClick={() => fetchTransactions(currentPage - 1)}
+                disabled={currentPage === 1 || isLoading}
+              >
+                <ChevronLeft size={18} className="text-gray-600" />
+              </button>
+              <button 
+                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                onClick={() => fetchTransactions(currentPage + 1)}
+                disabled={currentPage * TRANSACTIONS_PER_PAGE >= totalTransactions || isLoading}
+              >
+                <ChevronRight size={18} className="text-gray-600" />
+              </button>
+            </div>
+          </div>
+          </>
+        )}
       </div>
 
       <ConfirmationModal
@@ -370,7 +467,7 @@ export default function Wallet() {
                     >
                       <option value="">Select a bank</option>
                       {banks.map((bank) => (
-                        <option key={bank.id} value={bank.code}>{bank.name}</option>
+                        <option key={bank.code} value={bank.code}>{bank.name}</option>
                       ))}
                     </select>
                   </div>
