@@ -103,6 +103,8 @@ interface WalletState {
   isLoading: boolean;
   isVerifying: boolean;
   verifiedAccountName: string | null;
+  verificationError: string | null;
+  verifyingFor: string | null;
   pendingWithdrawals: PendingWithdrawal[];
   isLoadingPending: boolean;
   actioningId: string | null;
@@ -136,6 +138,8 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   isLoading: false,
   isVerifying: false,
   verifiedAccountName: null,
+  verificationError: null,
+  verifyingFor: null,
   pendingWithdrawals: [],
   isLoadingPending: false,
   actioningId: null,
@@ -193,17 +197,19 @@ export const useWalletStore = create<WalletState>((set, get) => ({
 
   verifyAccount: async (accountNumber, bankCode) => {
     if (accountNumber.length !== 10) return;
-    set({ isVerifying: true, verifiedAccountName: null });
+    // Ignore responses for an account/bank the user has since changed
+    const key = `${accountNumber}:${bankCode}`;
+    set({ isVerifying: true, verifiedAccountName: null, verificationError: null, verifyingFor: key });
     try {
       // Using our backend proxy for verification as it needs secret key
       const res = await api.get("/admin/wallet/verify-bank", { 
         params: { account_number: accountNumber, bank_code: bankCode } 
       });
+      if (get().verifyingFor !== key) return;
       set({ verifiedAccountName: res.data.data.account_name, isVerifying: false });
-      toast.success("Account verified");
-    } catch (error) {
-      set({ isVerifying: false });
-      toast.error("Could not verify account details");
+    } catch {
+      if (get().verifyingFor !== key) return;
+      set({ isVerifying: false, verificationError: "We couldn't verify this account. Check the account number and bank." });
     }
   },
 
@@ -245,7 +251,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     }
   },
 
-  resetVerification: () => set({ verifiedAccountName: null, isVerifying: false }),
+  resetVerification: () => set({ verifiedAccountName: null, isVerifying: false, verificationError: null, verifyingFor: null }),
 
   fetchPendingWithdrawals: async () => {
     set({ isLoadingPending: true });
