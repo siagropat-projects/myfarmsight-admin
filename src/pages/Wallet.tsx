@@ -31,6 +31,11 @@ import PendingWithdrawals from "../components/modules/wallet/PendingWithdrawals"
 import WalletStatusBadge from "../components/modules/wallet/WalletStatusBadge";
 import ReconcileResultModal from "../components/modules/wallet/ReconcileResultModal";
 
+// Skip the Paystack account lookup locally (npm run dev) or where explicitly opted in,
+// to avoid using up the daily verification quota. Production builds always verify.
+const SKIP_BANK_VERIFICATION =
+  import.meta.env.DEV || import.meta.env.VITE_SKIP_BANK_VERIFICATION === "true";
+
 const formatLabel = (value: string) => value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, " ");
 
 export default function Wallet() {
@@ -91,7 +96,7 @@ export default function Wallet() {
   const canVerify = Boolean(withdrawData.bankCode) && /^\d{10}$/.test(withdrawData.accountNumber);
 
   useEffect(() => {
-    if (isModalOpen && canVerify) {
+    if (isModalOpen && canVerify && !SKIP_BANK_VERIFICATION) {
       verifyAccount(withdrawData.accountNumber, withdrawData.bankCode);
     }
   }, [isModalOpen, canVerify, withdrawData.accountNumber, withdrawData.bankCode, verifyAccount]);
@@ -509,6 +514,13 @@ export default function Wallet() {
                     </div>
                   )}
 
+                  {SKIP_BANK_VERIFICATION && canVerify && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center gap-3 animate-in slide-in-from-top-2">
+                      <AlertCircle size={20} className="text-amber-600 shrink-0" />
+                      <p className="text-sm font-medium text-amber-700">Account verification skipped in development.</p>
+                    </div>
+                  )}
+
                   {verificationError && canVerify && !isVerifying && (
                     <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2">
                       <AlertCircle size={20} className="text-red-500 shrink-0" />
@@ -527,7 +539,7 @@ export default function Wallet() {
                   <Button 
                     variant="primary" 
                     className="w-full rounded-xl py-4 flex items-center justify-center gap-2"
-                    disabled={!verifiedAccountName || isVerifying}
+                    disabled={(SKIP_BANK_VERIFICATION ? !canVerify : !verifiedAccountName) || isVerifying}
                     onClick={handleProceed}
                   >
                     Proceed <ArrowRight size={18} />
@@ -545,7 +557,7 @@ export default function Wallet() {
                         Change Account
                       </button>
                     </div>
-                    <p className="text-sm font-bold text-gray-900">{verifiedAccountName}</p>
+                    <p className="text-sm font-bold text-gray-900">{verifiedAccountName || "Unverified account (dev)"}</p>
                     <p className="text-xs text-gray-500">{withdrawData.accountNumber} • {banks.find(b => b.code === withdrawData.bankCode)?.name}</p>
                   </div>
 
