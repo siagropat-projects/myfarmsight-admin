@@ -2,6 +2,9 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { api } from "../utils/api";
+import { markActivity } from "../hooks/useIdleTimeout";
+
+export const LOGOUT_REASON_KEY = "logout-reason";
 
 export type User = {
     id: string;
@@ -26,7 +29,7 @@ type AuthState = {
     // API Actions
     login: (data: LoginPayload) => Promise<void>;
     me: () => Promise<void>;
-    logout: () => void;
+    logout: (reason?: "inactivity") => void;
 };
 
 export const useAuth = create<AuthState>()(
@@ -44,6 +47,7 @@ export const useAuth = create<AuthState>()(
                 try {
                     const res = await api.post("/auth/login", data);
                     const { user, token } = res.data.data;
+                    markActivity();
                     set({ user, token });
                     toast.success("Logged in Successfully!!!")
                 } catch (error: any) {
@@ -66,7 +70,11 @@ export const useAuth = create<AuthState>()(
                 }
             },
 
-            logout: () => {
+            logout: (reason) => {
+                // Survives the redirect so the login page can explain why
+                if (reason) {
+                    try { sessionStorage.setItem(LOGOUT_REASON_KEY, reason); } catch { /* ignore */ }
+                }
                 set({ user: null, token: null });
                 window.location.href = "/login"
                 toast.success("Logged Out Successfully!!!")

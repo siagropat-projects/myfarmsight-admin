@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Images } from "../../assets";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
-import { useAuth } from "../../stores/auth";
+import { useAuth, LOGOUT_REASON_KEY } from "../../stores/auth";
 
 // Define the form fields for TS
 type LoginFormInputs = {
@@ -18,6 +18,19 @@ export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const { login, user, token, logout } = useAuth();
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(LOGOUT_REASON_KEY) === "inactivity") {
+        sessionStorage.removeItem(LOGOUT_REASON_KEY);
+        toast.info("You were logged out due to inactivity", {
+          description: "Please log in again to continue.",
+        });
+      }
+    } catch {
+      // Storage unavailable: skip the message
+    }
+  }, []);
 
   useEffect(() => {
     if (token && user?.role === "admin") {
