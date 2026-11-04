@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import Sidebar from "./Sidebar";
 import Headbar from "./Headbar";
 import { useAuth } from "../../stores/auth";
+import { refreshSession } from "../../utils/api";
 import { useIdleTimeout } from "../../hooks/useIdleTimeout";
 import SessionTimeoutModal from "./SessionTimeoutModal";
 
@@ -23,13 +24,27 @@ export default function AppLayout() {
         onTimeout: handleIdleTimeout,
     });
 
-    // Logging out in another tab clears the shared auth storage; follow it here
+    // Keep the user active straight away; a 401 here ends the session, and any other
+    // failure is retried automatically by the next request that needs a new token
+    const handleContinue = () => {
+        stayActive();
+        refreshSession().catch((error) => {
+            if (error?.response?.status !== 401) {
+                toast.error("Couldn't renew your session", {
+                    description: "Please check your connection.",
+                });
+            }
+        });
+    };
+
+    // Other tabs share the auth storage: follow their logouts and pick up refreshed tokens
     useEffect(() => {
         const handleStorage = (event: StorageEvent) => {
             if (event.key !== "auth-storage") return;
             try {
                 const next = event.newValue ? JSON.parse(event.newValue) : null;
                 if (!next?.state?.token) window.location.href = "/login";
+                else useAuth.persist.rehydrate();
             } catch {
                 // Ignore malformed values
             }
@@ -84,7 +99,7 @@ export default function AppLayout() {
             {isWarning && (
                 <SessionTimeoutModal
                     secondsLeft={secondsLeft}
-                    onContinue={stayActive}
+                    onContinue={handleContinue}
                     onLogout={() => logout()}
                 />
             )}

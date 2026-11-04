@@ -21,9 +21,10 @@ export default function Login() {
 
   useEffect(() => {
     try {
-      if (sessionStorage.getItem(LOGOUT_REASON_KEY) === "inactivity") {
-        sessionStorage.removeItem(LOGOUT_REASON_KEY);
-        toast.info("You were logged out due to inactivity", {
+      const reason = sessionStorage.getItem(LOGOUT_REASON_KEY);
+      sessionStorage.removeItem(LOGOUT_REASON_KEY);
+      if (reason) {
+        toast.info(reason === "inactivity" ? "You were logged out due to inactivity" : "Your session has expired", {
           description: "Please log in again to continue.",
         });
       }
