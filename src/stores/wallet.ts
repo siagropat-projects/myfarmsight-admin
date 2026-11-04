@@ -90,6 +90,11 @@ export interface WalletOverview {
     total_subscriptions: string | number;
     total_admin_withdrawable_balance: string | number;
   };
+  service_fee: {
+    value: string | number;
+    type: string | number;
+    display: string | number;
+  };
 }
 
 interface WalletState {
