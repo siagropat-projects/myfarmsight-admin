@@ -248,7 +248,9 @@ export default function Wallet() {
             </div>
             <div className="flex justify-between items-center py-2.5">
               <span className="text-sm text-gray-500 font-medium">Service Fee</span>
-              <span className="text-sm font-bold text-gray-900">1.5%</span>
+              <span className="text-sm font-bold text-gray-900">
+ {`₦${overview?.service_fee?.display || 0}`}
+              </span>
             </div>
           </div>
           <div className="bg-gray-50 rounded-2xl p-3 flex items-start gap-3">
