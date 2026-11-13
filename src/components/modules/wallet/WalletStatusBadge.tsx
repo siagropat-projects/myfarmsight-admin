@@ -39,9 +39,25 @@ const failedWithdrawal = {
   title: "The withdrawal didn't go through and the money was refunded to the wallet.",
 };
 
-export default function WalletStatusBadge({ status, type }: { status: string; type?: string }) {
+const rejectedWithdrawal = {
+  label: "Rejected, refunded",
+  className: "bg-red-50 text-red-600 border-red-100",
+  icon: <AlertCircle size={12} />,
+  title: "An admin rejected this withdrawal and the money was refunded to the wallet.",
+};
+
+export default function WalletStatusBadge({
+  status,
+  type,
+  failureSource,
+}: {
+  status: string;
+  type?: string;
+  failureSource?: string | null;
+}) {
   const isFailedWithdrawal = status?.toLowerCase() === "failed" && type === "withdrawal";
-  const config = (isFailedWithdrawal ? failedWithdrawal : statusConfig[status?.toLowerCase()]) ?? {
+  const isRejected = isFailedWithdrawal && failureSource === "admin_reject";
+  const config = (isRejected ? rejectedWithdrawal : isFailedWithdrawal ? failedWithdrawal : statusConfig[status?.toLowerCase()]) ?? {
     label: status?.replace(/_/g, " ") || "Unknown",
     className: "bg-gray-50 text-gray-600 border-gray-100",
     icon: null,

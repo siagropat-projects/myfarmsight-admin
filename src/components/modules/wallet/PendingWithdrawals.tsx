@@ -43,7 +43,10 @@ export default function PendingWithdrawals() {
                 <tr key={w.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="font-bold text-gray-900">{details.requester}</span>
+                      {/* new */}
+                    <span className="font-bold text-gray-900">
+                       {w.requested_by_name || (w.metadata?.adminWithdrawal ? "Unknown admin" : details.requester)}
+                    </span>
                       <span className="text-[10px] text-gray-400 capitalize">{details.role || details.email || "N/A"}</span>
                     </div>
                   </td>
