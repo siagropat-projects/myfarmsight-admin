@@ -16,7 +16,13 @@ export interface Transaction {
   updated_at: string;
   user_name?: string;
   user_email?: string;
+  //new
   user_role?: string;
+  requested_by_name?: string | null;
+  reviewed_by_name?: string | null;
+  triggered_by_name?: string | null;
+  rejection_reason?: string | null;
+  failure_source?: string | null;
 }
 
 export interface PendingWithdrawal {
@@ -31,11 +37,16 @@ export interface PendingWithdrawal {
       bank_code?: string;
       account_number?: string;
     };
-    requestedBy?: string;
+    //new
+  requestedBy?: string;
+  adminWithdrawal?: boolean;
   } | null;
   requester_name?: string;
   requester_email?: string;
+  //new
   requester_role?: string;
+  requested_by_id?: string | null;
+  requested_by_name?: string | null;
 }
 
 export const TRANSACTION_TYPES = [

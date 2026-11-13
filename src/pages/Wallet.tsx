@@ -38,6 +38,8 @@ const SKIP_BANK_VERIFICATION =
 
 const formatLabel = (value: string) => value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, " ");
 
+const DEBIT_TYPES = ["withdrawal", "escrow_hold"];
+
 export default function Wallet() {
   const { 
     overview, 
@@ -249,7 +251,9 @@ export default function Wallet() {
             <div className="flex justify-between items-center py-2.5">
               <span className="text-sm text-gray-500 font-medium">Service Fee</span>
               <span className="text-sm font-bold text-gray-900">
- {`₦${overview?.service_fee?.display || 0}`}
+ {/* {`₦${overview?.service_fee?.display || 0}`} */}
+        {/* new */}
+       {overview?.service_fee?.display ?? "N/A"}
               </span>
             </div>
           </div>
@@ -349,33 +353,42 @@ export default function Wallet() {
               <thead className="bg-gray-50 text-gray-500 border-b border-gray-100 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="px-6 py-4">Transaction Type</th>
-                  <th className="px-6 py-4">User/Entity</th>
+                  {/* <th className="px-6 py-4">User/Entity</th> */}
+                  <th className="px-6 py-4">Wallet Owner</th>
+                  
                   <th className="px-6 py-4">Amount</th>
+                  {/* new */}
                   <th className="px-6 py-4">Date & Time</th>
+                 <th className="px-6 py-4">Initiated By</th>
+                  <th className="px-6 py-4">Reviewed By</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+                        <tbody className="divide-y divide-gray-50">
                 {filteredTransactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg ${tx.type.includes("subscription") ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}`}>
-                          {tx.type.includes("withdrawal") ? <ArrowRight size={16} className="text-red-500" /> : <Plus size={16} />}
+                           {DEBIT_TYPES.includes(tx.type) ? <ArrowRight size={16} className="text-red-500" /> : <Plus size={16} />}
                         </div>
                         <span className="font-bold text-gray-900 capitalize">{tx.type.replace(/_/g, " ")}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="font-medium text-gray-900">{tx.user_name || "System"}</span>
-                        <span className="text-[10px] text-gray-400">{tx.user_role || "N/A"}</span>
+                        <span className="font-medium text-gray-900">
+                          {tx.user_role === "admin" ? "Admin" : tx.user_name || "System"}
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          {tx.user_role === "admin" ? "Platform wallet" : tx.user_role || "N/A"}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`font-bold ${tx.type.includes("withdrawal") ? "text-red-500" : "text-brand"}`}>
-                        {tx.type.includes("withdrawal") ? "-" : "+"}₦{tx.amount.toLocaleString()}
+                      <span className={`font-bold ${DEBIT_TYPES.includes(tx.type) ? "text-red-500" : "text-brand"}`}>
+                        {DEBIT_TYPES.includes(tx.type) ? "-" : "+"}₦{tx.amount.toLocaleString()}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-500">
@@ -386,8 +399,19 @@ export default function Wallet() {
                         </span>
                       </div>
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                     {tx.requested_by_name || tx.triggered_by_name || (tx.type === "refund" ? "System" : <span className="text-gray-300">—</span>)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {tx.reviewed_by_name || <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-6 py-4">
-                      <WalletStatusBadge status={tx.status} type={tx.type} />
+                        <WalletStatusBadge status={tx.status} type={tx.type} failureSource={tx.failure_source} />
+                      {tx.type === "withdrawal" && tx.rejection_reason && (
+                        <p className="text-[10px] text-gray-400 mt-1 max-w-[180px] truncate" title={tx.rejection_reason}>
+                          {tx.rejection_reason}
+                        </p>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
@@ -398,7 +422,7 @@ export default function Wallet() {
                 ))}
                 {filteredTransactions.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       No transactions found.
                     </td>
                   </tr>
